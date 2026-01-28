@@ -1,386 +1,110 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Interactive Tea Wheel</title>
 
 <style>
-  body{
-    margin:0;
-    padding:20px;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    background:#f7f7f7;
-    display:grid;
-    place-items:center;
-    gap:14px;
-  }
-  .wrap{
-    width:min(92vw, 900px);
-    display:grid;
-    gap:12px;
-    justify-items:center;
+  body {
+    margin: 0;
+    padding: 20px;
+    display: grid;
+    place-items: center;
+    font-family: Arial, sans-serif;
+    background: #f7f7f7;
   }
 
-  /* Wheel stage */
-  .stage{
-    width:min(92vw, 800px);
+  .container {
+    width: min(90vw, 800px);
     aspect-ratio: 1 / 1;
-    position:relative;
-    touch-action:none;
-    user-select:none;
+    touch-action: none;
   }
-  #wheel{
-    width:100%;
-    height:100%;
-    object-fit:contain;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    cursor: grab;
+    user-select: none;
     transform-origin: 50% 50%;
     will-change: transform;
-    cursor: grab;
-    -webkit-user-drag:none;
-    user-drag:none;
-    position:absolute;
-    inset:0;
-  }
-  #wheel:active { cursor: grabbing; }
-
-  /* Canvas overlay for highlighting clicked slice */
-  #overlay{
-    position:absolute;
-    inset:0;
-    width:100%;
-    height:100%;
-    pointer-events:none; /* click passes through */
   }
 
-  /* Controls + legend */
-  .row{
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    align-items:center;
-    justify-content:center;
-  }
-  button{
-    padding:8px 12px;
-    border-radius:10px;
-    border:1px solid #bbb;
-    background:#fff;
-    cursor:pointer;
-  }
-  .legend{
-    width: min(92vw, 900px);
-    display:grid;
-    gap:8px;
-  }
-  .legend-title{ font-weight:600; }
-  .legend-items{
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px 14px;
-    justify-content:center;
-  }
-  .legend-item{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    padding:6px 10px;
-    background:#fff;
-    border:1px solid #e0e0e0;
-    border-radius:999px;
-    font-size:14px;
-  }
-  .swatch{
-    width:14px;
-    height:14px;
-    border-radius:4px;
-    border:1px solid rgba(0,0,0,0.2);
+  img:active {
+    cursor: grabbing;
   }
 
-  /* Popup */
-  .modal-backdrop{
-    position:fixed;
-    inset:0;
-    background:rgba(0,0,0,0.35);
-    display:none;
-    place-items:center;
-    padding:16px;
+  button {
+    margin-top: 12px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid #aaa;
+    background: white;
+    cursor: pointer;
   }
-  .modal{
-    width:min(92vw, 520px);
-    background:#fff;
-    border-radius:16px;
-    box-shadow: 0 16px 50px rgba(0,0,0,0.25);
-    padding:16px 16px 12px;
-  }
-  .modal-head{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:10px;
-    margin-bottom:8px;
-  }
-  .modal-title{
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-weight:700;
-    font-size:18px;
-    margin:0;
-  }
-  .modal-body{
-    margin:0;
-    color:#333;
-    line-height:1.35;
-    white-space:pre-wrap;
-  }
-  .close{
-    border:1px solid #ccc;
-    background:#fff;
-    border-radius:10px;
-    padding:6px 10px;
-    cursor:pointer;
-  }
-  .hint{
-    color:#444;
-    font-size:0.95rem;
-    text-align:center;
-    max-width:70ch;
+
+  .hint {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    color: #444;
+    text-align: center;
   }
 </style>
 </head>
 
 <body>
-  <div class="wrap">
-    <div class="hint">
-      Drag to rotate. Click/tap a slice for a description.
-    </div>
 
-    <div class="stage" id="stage">
-      <img id="wheel" src="Tea Tasting.webp" alt="Tea Flavor Wheel" draggable="false" />
-      <canvas id="overlay" aria-hidden="true"></canvas>
-    </div>
+<div class="container" id="stage">
+  <img
+    id="wheel"
+    src="Tea Tasting.webp"
+    alt="Tea Flavor Wheel"
+    draggable="false">
+</div>
 
-    <div class="row">
-      <button id="resetBtn" type="button">Reset</button>
-      <button id="clearBtn" type="button">Clear Highlight</button>
-    </div>
+<button onclick="resetWheel()">Reset</button>
 
-    <div class="legend">
-      <div class="legend-title">Color legend</div>
-      <div class="legend-items" id="legendItems"></div>
-    </div>
-  </div>
+<div class="hint">
+  Drag the wheel to explore tea flavor relationships
+</div>
 
-  <!-- Popup -->
-  <div class="modal-backdrop" id="backdrop" role="dialog" aria-modal="true" aria-label="Slice description">
-    <div class="modal">
-      <div class="modal-head">
-        <h3 class="modal-title">
-          <span class="swatch" id="modalSwatch"></span>
-          <span id="modalTitle">Title</span>
-        </h3>
-        <button class="close" id="closeBtn" type="button">Close</button>
-      </div>
-      <p class="modal-body" id="modalBody"></p>
-    </div>
-  </div>
-
-<script src="segments.js"></script>
 <script>
-  // --- Rotation (drag) ---
   const stage = document.getElementById("stage");
   const wheel = document.getElementById("wheel");
-  const resetBtn = document.getElementById("resetBtn");
-  const clearBtn = document.getElementById("clearBtn");
 
   let dragging = false;
   let startAngle = 0;
   let rotation = 0;
 
-  function angleFromCenter(clientX, clientY){
+  function angleFromCenter(x, y) {
     const rect = stage.getBoundingClientRect();
-    const cx = rect.left + rect.width/2;
-    const cy = rect.top + rect.height/2;
-    const dx = clientX - cx;
-    const dy = clientY - cy;
-    return Math.atan2(dy, dx) * 180 / Math.PI; // -180..180
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    return Math.atan2(y - cy, x - cx) * 180 / Math.PI;
   }
 
-  stage.addEventListener("pointerdown", (e) => {
+  stage.addEventListener("pointerdown", e => {
     dragging = true;
     stage.setPointerCapture(e.pointerId);
     startAngle = angleFromCenter(e.clientX, e.clientY) - rotation;
   });
 
-  stage.addEventListener("pointermove", (e) => {
-    if(!dragging) return;
+  stage.addEventListener("pointermove", e => {
+    if (!dragging) return;
     rotation = angleFromCenter(e.clientX, e.clientY) - startAngle;
     wheel.style.transform = `rotate(${rotation}deg)`;
-    drawHighlight(); // keep highlight aligned as wheel rotates
   });
 
   stage.addEventListener("pointerup", () => dragging = false);
   stage.addEventListener("pointercancel", () => dragging = false);
 
-  resetBtn.addEventListener("click", () => {
+  function resetWheel() {
     rotation = 0;
     wheel.style.transform = "rotate(0deg)";
-    drawHighlight();
-  });
-
-  // --- Popup modal ---
-  const backdrop = document.getElementById("backdrop");
-  const closeBtn = document.getElementById("closeBtn");
-  const modalTitle = document.getElementById("modalTitle");
-  const modalBody  = document.getElementById("modalBody");
-  const modalSwatch = document.getElementById("modalSwatch");
-
-  function openModal(seg){
-    modalTitle.textContent = seg.label;
-    modalBody.textContent = seg.description || "";
-    modalSwatch.style.background = seg.color || "#ddd";
-    backdrop.style.display = "grid";
   }
-  function closeModal(){
-    backdrop.style.display = "none";
-  }
-  closeBtn.addEventListener("click", closeModal);
-  backdrop.addEventListener("click", (e) => { if(e.target === backdrop) closeModal(); });
-  window.addEventListener("keydown", (e) => { if(e.key === "Escape") closeModal(); });
-
-  // --- Legend (auto from segments.js) ---
-  const legendItems = document.getElementById("legendItems");
-  function buildLegend(){
-    const seen = new Map(); // label -> color
-    (window.SEGMENTS || []).forEach(s => {
-      if(!seen.has(s.legend)) seen.set(s.legend, s.color || "#ddd");
-    });
-
-    legendItems.innerHTML = "";
-    for(const [name, color] of seen.entries()){
-      const el = document.createElement("div");
-      el.className = "legend-item";
-      el.innerHTML = `<span class="swatch" style="background:${color}"></span><span>${name}</span>`;
-      legendItems.appendChild(el);
-    }
-  }
-
-  // --- Click detection: convert click to (angle, radius) on the wheel ---
-  function normalizeAngle0to360(deg){
-    return (deg % 360 + 360) % 360;
-  }
-
-  function hitTestSegment(clientX, clientY){
-    const rect = stage.getBoundingClientRect();
-    const cx = rect.left + rect.width/2;
-    const cy = rect.top + rect.height/2;
-
-    const dx = clientX - cx;
-    const dy = clientY - cy;
-
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const maxR = Math.min(rect.width, rect.height) / 2;
-
-    const rNorm = dist / maxR; // 0..1 (outside can be >1)
-
-    // Raw angle from center, but wheel is rotated — adjust by current rotation
-    const raw = Math.atan2(dy, dx) * 180 / Math.PI;  // -180..180
-    const ang = normalizeAngle0to360(raw - rotation); // undo rotation
-
-    // Find matching segment definition
-    const segs = window.SEGMENTS || [];
-    for(const s of segs){
-      if(rNorm < s.r0 || rNorm > s.r1) continue;
-
-      // handle wrap-around segments (e.g., 330..20)
-      const a0 = normalizeAngle0to360(s.a0);
-      const a1 = normalizeAngle0to360(s.a1);
-
-      const inAngle = (a0 <= a1)
-        ? (ang >= a0 && ang <= a1)
-        : (ang >= a0 || ang <= a1);
-
-      if(inAngle) return { seg: s, ang, rNorm };
-    }
-    return null;
-  }
-
-  // --- Highlight drawing (simple wedge on overlay canvas) ---
-  const canvas = document.getElementById("overlay");
-  const ctx = canvas.getContext("2d");
-
-  let selectedSeg = null;
-
-  function resizeCanvas(){
-    const rect = stage.getBoundingClientRect();
-    canvas.width = Math.round(rect.width * devicePixelRatio);
-    canvas.height = Math.round(rect.height * devicePixelRatio);
-    canvas.style.width = rect.width + "px";
-    canvas.style.height = rect.height + "px";
-    ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0);
-    drawHighlight();
-  }
-  window.addEventListener("resize", resizeCanvas);
-
-  function drawHighlight(){
-    const rect = stage.getBoundingClientRect();
-    const w = rect.width, h = rect.height;
-    const cx = w/2, cy = h/2;
-    const maxR = Math.min(w,h)/2;
-
-    ctx.clearRect(0,0,w,h);
-    if(!selectedSeg) return;
-
-    // Convert segment angles to radians in screen space, re-applying wheel rotation
-    const a0 = (selectedSeg.a0 + rotation) * Math.PI/180;
-    const a1 = (selectedSeg.a1 + rotation) * Math.PI/180;
-
-    const r0 = selectedSeg.r0 * maxR;
-    const r1 = selectedSeg.r1 * maxR;
-
-    ctx.save();
-    ctx.beginPath();
-
-    // Outer arc
-    ctx.arc(cx, cy, r1, a0, a1, false);
-
-    // Inner arc (reverse)
-    ctx.arc(cx, cy, r0, a1, a0, true);
-
-    ctx.closePath();
-    ctx.globalAlpha = 0.25;
-    ctx.fillStyle = selectedSeg.color || "#ffd54f";
-    ctx.fill();
-
-    ctx.globalAlpha = 0.9;
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(0,0,0,0.35)";
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  clearBtn.addEventListener("click", () => {
-    selectedSeg = null;
-    drawHighlight();
-  });
-
-  // Click handler: open popup
-  stage.addEventListener("click", (e) => {
-    // avoid click after dragging: small guard
-    if(dragging) return;
-
-    const hit = hitTestSegment(e.clientX, e.clientY);
-    if(!hit) return;
-
-    selectedSeg = hit.seg;
-    drawHighlight();
-    openModal(hit.seg);
-  });
-
-  // Initialize
-  buildLegend();
-  resizeCanvas();
 </script>
+
 </body>
 </html>
+
